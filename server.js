@@ -1,6 +1,8 @@
 'use strict';
 
+var bodyParser = require('body-parser');
 var express = require('express');
+var logger = require('morgan');
 var mongoose  = require('mongoose');
 
 var api = require('./routes/api');
@@ -8,7 +10,7 @@ var api = require('./routes/api');
 var app = express();
 
 // set up mongoose database for Heroku or local development
-var mongoUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/amazonReviewAPI';
+var mongoUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/amazonReviewsAPI';
 mongoose.connect(mongoUrl, function(err) {
   if(err) {
     console.log("Mongo error: ", err);
@@ -17,7 +19,15 @@ mongoose.connect(mongoUrl, function(err) {
   }
 });
 
+app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
 app.use('/api', api);
+
+app.listen(process.env.PORT || 3000, function () {
+  console.log('Example app listening on port 3000!');
+});
 
 // sentiment analysis below, will port to app backend
 /*
@@ -49,8 +59,6 @@ app.use('/api', api);
     //     }
     //callback(null, comments);
     // });
-*/
-
   // function getSentiment(text, index) {
   //   var searchStr = 'comfort';
   //   var searchMatchCounter = text.match(new RegExp(searchStr, "gi"));
@@ -62,8 +70,4 @@ app.use('/api', api);
   //   return {commentNum:(`#${index+1}`), text:text,
   //           count: (searchMatchCounter ? searchMatchCounter.length : 0)};
   // }
-
-
-app.listen(process.env.PORT || 3000, function () {
-  console.log('Example app listening on port 3000!');
-});
+*/
