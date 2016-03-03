@@ -3,6 +3,7 @@
 'use strict';
 
 var amazon = require('amazon-product-api');
+var async = require('async');
 var cheerio = require('cheerio');
 var express = require('express');
 var request = require('request');
@@ -23,17 +24,26 @@ app.get('/', function (req, res) {
   client.itemSearch({
     keywords: 'headphones',
     responseGroup: 'ItemIds'
-  }).then(function(results){
-    var parsedData = parseItems(results);
-    //res.send(parsedData);
+  }).then(function(items){
+    parseItems(items, function(err, results){
+      return res.status(err ? 400 : 200).send(err || results);
+    });
   }).catch(function(err){
-    res.send(err);
+    return res.send(err);
   });
 
   // would iterate through each item
-  function parseItems(data) {
-    var parsedItems = parseItem(data[1]); //would be a map for each item, not just one
-    //return parsedItems;
+  function parseItems(items, completionCallback) {
+    async.map(items,
+      function(item, callback) {
+        setTimeout(function() {
+          callback(null,item.ASIN+'test');
+        }, 1000);
+      },
+      function(err, results) {
+        completionCallback(err, results);
+      }
+    );
   }
 
   // would also check for has comments first
