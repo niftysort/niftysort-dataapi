@@ -1,5 +1,6 @@
 // rewrite code functionally, using es6, with modularity, with error checking
 // emphasis on error checking
+// emphasis on modular code
 
 'use strict';
 
