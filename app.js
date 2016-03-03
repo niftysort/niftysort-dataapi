@@ -23,10 +23,9 @@ var client = amazon.createClient({
 // any failure in subfunctions will result in skipping that review/comment/item
 app.get('/', function (req, res) {
   client.itemSearch({
-    keywords: 'Harry Potter',
+    keywords: 'headphones',
     responseGroup: 'ItemAttributes, OfferSummary'
   }).then(function(items){
-    // res.send(items);
     parseItems([items[1]], function(err, results){
       res.status(err ? 400 : 200).send(err || results);
     });
@@ -74,6 +73,7 @@ app.get('/', function (req, res) {
 
     function getPageOfReviews(callback) {
       var amazonUrl = `http://www.amazon.com/product-reviews/${asinNum}/ref=cm_cr_arp_d_viewopt_srt?ie=UTF8&showViewpoints=${pageCount}&sortBy=helpful&pageNumber=${pageCount}`;
+      console.log('amazonUrl: ' + amazonUrl);
       request(amazonUrl, (err, resp, body) => {
         if (err) callback(err, null); // Passing error up: Amazon API Request Error
 
@@ -83,7 +83,7 @@ app.get('/', function (req, res) {
 
           //nextPage will be false and terminate loop, when page doesnt not have anymore reviews to scrape
           // nextPage = amazonReviews.length;
-          nextPage = (pageCount < 5);
+          nextPage = (pageCount < 25);
 
           // needs massive error checking or try catch or both
           amazonReviews.each((index, element) => {
@@ -96,7 +96,7 @@ app.get('/', function (req, res) {
           });
 
           pageCount++;
-          callback(null, reviewsObj.concat(reviewsObj.length));
+          callback(null, reviewsObj);
         }
       });
     }
