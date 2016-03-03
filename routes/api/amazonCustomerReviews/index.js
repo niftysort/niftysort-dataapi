@@ -37,7 +37,7 @@ router.post('/', (req, res, next) => {
     parseItems(items, function(err, results){
       Category.create({
         name: searchCategory,
-        items: results
+        products: results
       }, function(err, newCategory) {
         res.status(err ? 400 : 200).send(err || newCategory);
       });
@@ -103,7 +103,7 @@ router.post('/', (req, res, next) => {
             reviewsObj.push({
               title: $(element).find(".review-title").text(),
               text: $(element).find(".review-text").text(),
-              stars: ($(element).find(".a-icon.a-icon-star").attr('class')).match(/a-star-(\d)/)[1],
+              stars: parseInt(($(element).find(".a-icon.a-icon-star").attr('class')).match(/a-star-(\d)/)[1]),
               helpful: $(element).find(".review-votes").text()
             });
           });
@@ -115,5 +115,17 @@ router.post('/', (req, res, next) => {
     }
   };
 });
+
+// GET /api/reviews/
+// FIXME: eventually make multiple attributes input acceptable
+router.get('/:categoryId/:attributes', (req, res, next) => {
+  var categoryId = req.params.categoryId;
+  var attributes = req.params.attributes;
+
+  Category.getD3DataByAttribute(categoryId, attributes, function(err, D3FormatedData) {
+    res.status(err ? 400 : 200).send(err || D3FormatedData)
+  });
+})
+
 
 module.exports = router;
