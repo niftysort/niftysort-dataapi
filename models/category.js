@@ -20,7 +20,7 @@ categorySchema.statics.getD3DataByAttribute = function(categoryId, attribute, ca
 			values: category.products.map(getD3Values)
 		};
 
-		callback(null, [graphData]); // FIXME: D3 requires an ARRAY, refactor
+		callback(null, graphData); //return an D3 data obj for one category
 	}).populate('products');
 
 	function getD3Values(product) {
