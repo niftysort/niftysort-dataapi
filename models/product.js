@@ -20,6 +20,6 @@ var productSchema = mongoose.Schema({
   reviews: []
 });
 
-var Product = mongoose.model('Product', productSchema);
+Product = mongoose.model('Product', productSchema);
 
 module.exports = Product;

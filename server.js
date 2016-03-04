@@ -9,6 +9,9 @@ var api = require('./routes/api');
 
 var app = express();
 
+// set up env variables for 'development mode'
+require('dotenv').config();
+
 // sets up mongoose database for Heroku or local development
 var mongoUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/amazonReviewsAPI';
 mongoose.connect(mongoUrl, function(err) {

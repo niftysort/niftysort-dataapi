@@ -14,10 +14,10 @@ var Product = require('../../../models/product');
 // eventually modularize the scrapper
 // var reviews = require('../../../lib/scrapers/amazon/reviews');
 
-var router = express.Router();
-
 // set up env variables for 'development mode'
 require('dotenv').config();
+
+var router = express.Router();
 
 var client = amazon.createClient({
   awsId: process.env.awsIdENV,
@@ -87,6 +87,7 @@ router.post('/', (req, res, next) => {
 
     function getPageOfReviews(callback) {
       var amazonUrl = `http://www.amazon.com/product-reviews/${asinNum}/ref=cm_cr_arp_d_viewopt_srt?ie=UTF8&showViewpoints=${pageCount}&sortBy=helpful&pageNumber=${pageCount}`;
+      console.log(amazonUrl);
       request(amazonUrl, (err, resp, body) => {
         if (err) callback(err, null); // Passing error up: Amazon API Request Error
 
@@ -96,7 +97,7 @@ router.post('/', (req, res, next) => {
 
           //nextPage will be false and terminate loop, when page doesnt not have anymore reviews to scrape
           // nextPage = amazonReviews.length;
-          nextPage = (pageCount < 1);
+          nextPage = (pageCount < 10);
 
           // needs massive error checking or try catch or both
           amazonReviews.each((index, element) => {

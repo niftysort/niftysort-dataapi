@@ -40,18 +40,8 @@ categorySchema.statics.getD3DataByAttribute = function(categoryId, attribute, ca
 		}
 		return d3Values;
 	}
-
-  //   var searchMatchCounter = text.match(new RegExp(attributes, "gi"));
-  //   var textNoPuctuation = text.replace(/[.,'\/#!$%\^&\*;:{}=\-_`~()]/g," ");
-  //   textNoPuctuation.split(' ').forEach(function(val){
-  //     if (dictionary[val]) dictionary[val]++; // incremented instance
-  //     else dictionary[val] = 1; // initial instance
-  //   });
-  //   return {commentNum:(`#${index+1}`), text:text,
-  //           count: (searchMatchCounter ? searchMatchCounter.length : 0)};
-  // }
 }
 
-var Category = mongoose.model('Category', categorySchema);
+Category = mongoose.model('Category', categorySchema);
 
 module.exports = Category;
