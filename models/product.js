@@ -6,8 +6,9 @@ var Product;
 
 /* expands this to reflect model:
   info: {
-    name:
-    price
+    name: String
+    price: Number
+		features: Array of Strings
   },
   reviews: [
     {
@@ -16,9 +17,20 @@ var Product;
   ]
 */
 var productSchema = mongoose.Schema({
-	info: {},
-  reviews: []
+  categoryName: String,
+  info: {},
+  reviews: [],
 });
+
+productSchema.statics.getProductsByCategory = function (categoryName, attribute, callback) {
+  Product.find({ categoryName: categoryName }, function (err, productsByCategory) {
+    if (err) {
+      return callback('Mongoose Find Error', null);
+    }
+
+    callback(null, productsByCategory);
+  });
+};
 
 Product = mongoose.model('Product', productSchema);
 

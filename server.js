@@ -14,9 +14,9 @@ require('dotenv').config();
 
 // sets up mongoose database for Heroku or local development
 var mongoUrl = process.env.MONGOLAB_URI || 'mongodb://localhost/amazonReviewsAPI';
-mongoose.connect(mongoUrl, function(err) {
-  if(err) {
-    console.log("Mongo error: ", err);
+mongoose.connect(mongoUrl, function (err) {
+  if (err) {
+    console.log('Mongo error: ', err);
   } else {
     console.log(`MongoDB connected to ${mongoUrl}`);
   }

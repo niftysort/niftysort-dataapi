@@ -29,46 +29,54 @@ var client = amazon.createClient({
 
 // global variable to be refactored
 var categoryToAdd;
+var itemsAddedCount = 0;
 
 // POST /api/reviews
 // any failure in subfunctions will result in skipping that review/comment/item
 router.post('/', (req, res, next) => {
   categoryToAdd = req.body.category;
-  var numberOfPages = 11;
+  var numberOfPages = 1;
   parsePagesOfProducts(numberOfPages, function (err, allProducts) {
     if (err) return res.status(400).send(err);
 
-    var flattenedArrayOfProducts = _.flatten(allProducts);
-    var arrayOfProductsNullsRemoved = flattenedArrayOfProducts.filter(function (val) {
-      return val;
-    });
+    res.send(`Products added: ${itemsAddedCount}`);
 
-    Category.create({
-      name: categoryToAdd,
-      products: arrayOfProductsNullsRemoved,
-    }, function (err, newCategory) {
-      res.status(err ? 400 : 200).send(err || newCategory);
-    });
+    // var flattenedArrayOfProducts = _.flatten(allProducts);
+    // var arrayOfProductsNullsRemoved = flattenedArrayOfProducts.filter(function (val) {
+    //   return val;
+    // });
+    //
+    // Category.create({
+    //   name: categoryToAdd,
+    //   products: arrayOfProductsNullsRemoved,
+    // }, function (err, newCategory) {
+    //   res.status(err ? 400 : 200).send(err || newCategory);
+    // });
   });
 });
 
 function parsePagesOfProducts(pages, completionCallback) {
-  var arrayOfPages = _.range(1, pages);
+  var arrayOfPages = _.range(1, pages + 1);
   async.map(arrayOfPages, getPageOfProducts, completionCallback);
 }
 
 function getPageOfProducts(page, completionCallback) {
   client.itemSearch({
     keywords: categoryToAdd,
-    responseGroup: 'ItemAttributes, OfferSummary',
+    responseGroup: 'ItemAttributes, OfferSummary, Images',
     ItemPage: page,
   }).then(function (items) {
-    parseItems(items, function (err, productIds) {
+    parseItems(items, function (err, allProductIds) {
       if (err) {
-        completionCallback(null, null);
-      } else {
-        completionCallback(null, productIds);
+        return completionCallback(err, null);
       }
+
+      // Removes nulls
+      var productIds = allProductIds.filter(function (val) {
+        return val;
+      });
+
+      completionCallback(null, allProductIds);
     });
   });
 }
@@ -84,21 +92,38 @@ function parseItem(item, completionCallback) {
     var itemObj = {
       info: {
         name: item.ItemAttributes[0].Title[0],
-        price: parseInt(item.OfferSummary[0].LowestNewPrice[0].Amount) / 100,
+        price: item.OfferSummary[0].LowestNewPrice ?
+              parseInt(item.OfferSummary[0].LowestNewPrice[0].Amount) / 100 :
+              parseInt(item.OfferSummary[0].LowestUsedPrice[0].Amount) / 100,
+        features: item.ItemAttributes[0].Feature,
+        imgLarge: item.ImageSets[0].ImageSet[0].LargeImage ?
+                  item.ImageSets[0].ImageSet[0].LargeImage[0].URL : '',
+        imgHighRes: item.ImageSets[0].ImageSet[0].HiResImage ?
+            item.ImageSets[0].ImageSet[0].HiResImage[0].URL : '',
       },
+      categoryName: categoryToAdd,
     };
-
     getReviewsByASIN(item.ASIN, function (err, reviews) {
-      itemObj.reviews = !err ? reviews : [];
+      if (err) {
+        console.log(err);
+        completionCallback(err, null);
+      }
 
-      Product.create(itemObj, function (err, newProduct) {
-        if (err) return completionCallback(null, null);
-        completionCallback(null, newProduct._id);
-      });
+      itemObj.reviews = !err ? reviews : null;
+
+      if (itemObj.reviews && itemObj.info.price) {
+        Product.create(itemObj, function (err, newProduct) {
+          if (err) return completionCallback(err, null);
+          console.log('added product, itemsAddedCount: ' + (++itemsAddedCount));
+          completionCallback(null, newProduct._id);
+        });
+      } else {
+        completionCallback(null, null);
+      }
     });
   }
   catch (err) {
-    completionCallback(null, null); // error case
+    completionCallback(null, null); // parse error case
   };
 }
 
@@ -116,9 +141,9 @@ function getReviewsByASIN(asinNum, completionCallback) {
     var amazonUrl = `http://www.amazon.com/product-reviews/${asinNum}/` +
     `&sortBy=helpful/paging_btm_${pageCount}?pageNumber=${pageCount}`;
 
-    //console.log(amazonUrl);
+    console. log(amazonUrl);
     request(amazonUrl, (err, resp, body) => {
-      if (err) callback(err, null); // Passing error up: Amazon API Request Error
+      if (err) callback('Request Fail', null); // Passing error up: Amazon API Request Error
 
       if (resp.statusCode === 200) {
         var $ = cheerio.load(body);
@@ -126,9 +151,15 @@ function getReviewsByASIN(asinNum, completionCallback) {
 
         //nextPage === false and terminate loop, when page doesnt not have anymore reviews to scrape
         // nextPage = $amazonReviews.length;
-        nextPage = (pageCount < 1);
+        if (pageCount >= 1) {
+          console.log('pageCount ', pageCount);
+          nextPage = false;
+        }
+
+        if (!nextPage) console.log('no next page: ', amazonUrl);
 
         // needs massive error checking or try catch or both
+        var counter = 0;
         $amazonReviews.each((index, element) => {
           var starClass = $(element).find('.a-icon.a-icon-star').attr('class');
           reviewsObj.push({
@@ -139,21 +170,26 @@ function getReviewsByASIN(asinNum, completionCallback) {
           });
         });
         pageCount++;
-
         callback(null, reviewsObj);
+      } else {
+        console.log('parse reviews fail');
+        callback('Review Parse Fail' + amazonUrl, null);
       }
     });
   }
 };
 
-// GET /api/reviews/
-// FIXME: eventually make multiple attributes input acceptable
-router.get('/:categoryId/:attributes', (req, res, next) => {
-  var categoryId = req.params.categoryId;
-  var attributes = req.params.attributes;
+// GET /api/reviews/product/<by id>
+router.get('/product/:id', (req, res, next) => {
+  Product.findById(req.params.id, function (err, productFound) {
+    res.status(err ? 400 : 200).send(err || productFound);
+  });
+});
 
-  Category.getD3DataByAttribute(categoryId, attributes, function (err, D3FormatedData) {
-    res.status(err ? 400 : 200).send(err || D3FormatedData);
+// GET /api/reviews/products/<by category name>
+router.get('/products/:categoryName', (req, res, next) => {
+  Product.getProductsByCategory(req.params.categoryName, null,  function (err, productsByCategory) {
+    res.status(err ? 400 : 200).send(err || productsByCategory);
   });
 });
 
