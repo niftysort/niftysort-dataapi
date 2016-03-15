@@ -32,9 +32,9 @@ var categoryToAdd;
 var itemsAddedCount = 0;
 
 router.post('/getProductsTop100FromUrl/', (req, res, next) => {
-  makeProductsFromTop100HeadUrl(req.body.url, function (err, productIds) {
+  makeProductsFromTop100HeadUrl(req.body.url, req.body.categoryName, function (err, newCategory) {
     if (err) return res.status(400).send(err);
-    res.status(200).send(productIds);
+    res.status(200).send(newCategory);
   });
 
   //
@@ -44,21 +44,20 @@ router.post('/getProductsTop100FromUrl/', (req, res, next) => {
   // });
 });
 
-function makeProductsFromTop100HeadUrl(url, completionCallback) {
+function makeProductsFromTop100HeadUrl(url, categoryName, completionCallback) {
   findChildUrlsFromHeadUrl(url, function (err, childUrlLinks) {
     if (err) return completionCallback(err, null);
 
     async.map(childUrlLinks, get20ProductsSinglePage, (err, arrOfProductIds) => {
       var top100ProductsCards = _.flatten(arrOfProductIds);
 
-      // Category.create({
-      //   name: categoryToAdd,
-      //   products: arrayOfProductsNullsRemoved,
-      // }, function (err, newCategory) {
-      //   res.status(err ? 400 : 200).send(err || newCategory);
-      // });
-
-      completionCallback(null, top100ProductsCards);
+      Category.create({
+        name: categoryName,
+        products: top100ProductsCards,
+      }, function (err, newCategory) {
+        if (err) return completionCallback(err, null);
+        completionCallback(null, newCategory);
+      });
     });
   });
 }
