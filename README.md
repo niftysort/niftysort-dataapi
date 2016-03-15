@@ -13,3 +13,5 @@ Future Plans/ToDo List (Updated March 3rd, 2016):
 // takes on multiple attributes for user query
 // deals with half start rating for customer review ==> better Regex
 // eventually use IBM Watson for natural language processing
+// Use browseNodeIds as one option only and user can still do custom search
+// Show user options for potential children for browseNodeIds the user selects

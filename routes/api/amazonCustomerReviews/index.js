@@ -46,7 +46,7 @@ router.get('/findDepartment/:departmentName', (req, res, next) => {
 
     res.status(200).send(departmentsDictionary);
   }).catch(function (err) {
-    res.send(err);
+    res.status(400).send(err);
   });
 });
 
@@ -79,12 +79,18 @@ router.get('/top100ByDepartment/:browseNodeId', (req, res, next) => {
   client.browseNodeLookup({
     browseNodeId: req.params.browseNodeId,
     responseGroup: 'TopSellers',
-  }).then(function (topSellers) {
-    res.status(200).send(topSellers);
+  }).then(function (top10) {
+    var bestProductUrl = top10[0].TopItemSet[0].TopItem[0].DetailPageURL;
+
+    res.status(200).send(bestProductUrl);
   }).catch(function (err) {
-    res.send(err);
+    res.status(400).send(err);
   });
 });
+
+function findTop100ASINS(bestProductUrl) {
+
+}
 
 // POST /api/reviews
 // any failure in subfunctions will result in skipping that review/comment/item
