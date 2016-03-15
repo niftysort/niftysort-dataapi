@@ -32,24 +32,33 @@ var categoryToAdd;
 var itemsAddedCount = 0;
 
 router.post('/getProductsTop100FromUrl/', (req, res, next) => {
-  // makeProductsFromTop100HeadUrl(req.body.url, function (err, productIds) {
-  //   if (err) return res.status(400).send(err);
-  //   res.status(200).send(productIds);
-  // });
-
-  get20ProductsSinglePage(req.body.url, function (err, data) {
+  makeProductsFromTop100HeadUrl(req.body.url, function (err, productIds) {
     if (err) return res.status(400).send(err);
-    res.status(200).send(data);
+    res.status(200).send(productIds);
   });
+
+  //
+  // get20ProductsSinglePage(req.body.url, function (err, data) {
+  //   if (err) return res.status(400).send(err);
+  //   res.status(200).send(data);
+  // });
 });
 
 function makeProductsFromTop100HeadUrl(url, completionCallback) {
   findChildUrlsFromHeadUrl(url, function (err, childUrlLinks) {
     if (err) return completionCallback(err, null);
 
-    async.map(childUrlLinks, get20ProductsSinglePage, (err, arrOf20Products) => {
-      // var top100ProductsCards = _.flatten(arrOf20Products);
-      completionCallback(null, 'top100ProductsCards');
+    async.map(childUrlLinks, get20ProductsSinglePage, (err, arrOfProductIds) => {
+      var top100ProductsCards = _.flatten(arrOfProductIds);
+
+      // Category.create({
+      //   name: categoryToAdd,
+      //   products: arrayOfProductsNullsRemoved,
+      // }, function (err, newCategory) {
+      //   res.status(err ? 400 : 200).send(err || newCategory);
+      // });
+
+      completionCallback(null, top100ProductsCards);
     });
   });
 }
@@ -180,10 +189,8 @@ function addAmazonApiData(productData, completionCallback) {
       item.ImageSets[0].ImageSet[0].HiResImage[0].URL[0] : '';
     completionCallback(null);
   }).catch(function (err) {
-    completionCallback(null);
-
     // Amazon API throws way to many errors, future scape the whole thing
-    // completionCallback(`Amazon API Error: ${err} ${productData.info.ASIN}`);
+    completionCallback(null);
   });
 }
 
