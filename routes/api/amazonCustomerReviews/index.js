@@ -27,6 +27,14 @@ var client = amazon.createClient({
   awsTag: process.env.awsTagENV,
 });
 
+// GET /api/reviews/product/<by id>
+router.get('/product/:id', (req, res, next) => {
+  Product.findById(req.params.id, function (err, productFound) {
+      res.status(err ? 400 : 200).send(err || productFound);
+    });
+});
+
+// POST /api/reviews/getProductsTop100FromUrl/
 router.post('/getProductsTop100FromUrl/', (req, res, next) => {
   makeProductsFromTop100HeadUrl(req.body.url, req.body.categoryName, function (err, newCategory) {
     if (err) return res.status(400).send(err);

@@ -1,7 +1,6 @@
-// Old Way but might contain useful code!!!
+// Old Way but might contain useful code snippets?!
 
-/*  Old Way of doing it
-  // GET /api/reviews/department/:departmentName
+// GET /api/reviews/department/:departmentName
   router.get('/findDepartment/:departmentName', (req, res, next) => {
     client.itemSearch({
       keywords: req.params.departmentName,
@@ -20,8 +19,8 @@
     });
   });
 
-  // Possible refactoring to avoid double if statements
-  function recursiveParseDepartmentsNodelist(browseNodeObj, departmentsDictionary) {
+// Possible refactoring to avoid double if statements
+function recursiveParseDepartmentsNodelist(browseNodeObj, departmentsDictionary) {
     var browseNodeId = browseNodeObj.BrowseNodeId;
     var browseNodeName = browseNodeObj.Name;
     if (departmentsDictionary[browseNodeName]) {
@@ -44,9 +43,9 @@
     }
   }
 
-  // GET /api/reviews/top100ByDepartment/:browseNodeId
-  router.get('/top100ByDepartment/:browseNodeId', (req, res, next) => {
-    client.browseNodeLookup({
+// GET /api/reviews/top100ByDepartment/:browseNodeId
+router.get('/top100ByDepartment/:browseNodeId', (req, res, next) => {
+  client.browseNodeLookup({
       browseNodeId: req.params.browseNodeId,
       responseGroup: 'TopSellers',
     }).then(function (top10) {
@@ -56,9 +55,9 @@
     }).catch(function (err) {
       res.status(400).send(err);
     });
-  });
+});
 
-  function addTop100Products(top10, completionCallback) {
+function addTop100Products(top10, completionCallback) {
     var bestProductUrl = top10[0].TopItemSet[0].TopItem[0].DetailPageURL[0];
     findTop100ProductsUrl(bestProductUrl, function (err, top100Url) {
       if (err) return completionCallback(err, null);
@@ -67,7 +66,7 @@
     });
   }
 
-  function findTop100ProductsUrl(bestProductUrl, completionCallback) {
+function findTop100ProductsUrl(bestProductUrl, completionCallback) {
     request(bestProductUrl, (err, resp, body) => {
       if (err) completionCallback('Request Fail', null);
 
@@ -83,12 +82,12 @@
     });
   }
 
-  // POST /api/reviews
-  // any failure in subfunctions will result in skipping that review/comment/item
-  router.post('/', (req, res, next) => {
-    categoryToAdd = req.body.category;
-    var numberOfPages = 1;
-    parsePagesOfProducts(numberOfPages, function (err, allProducts) {
+// POST /api/reviews
+// any failure in subfunctions will result in skipping that review/comment/item
+router.post('/', (req, res, next) => {
+  categoryToAdd = req.body.category;
+  var numberOfPages = 1;
+  parsePagesOfProducts(numberOfPages, function (err, allProducts) {
       if (err) return res.status(400).send(err);
 
       res.send(`Products added: ${itemsAddedCount}`);
@@ -105,14 +104,14 @@
       //   res.status(err ? 400 : 200).send(err || newCategory);
       // });
     });
-  });
+});
 
-  function parsePagesOfProducts(pages, completionCallback) {
+function parsePagesOfProducts(pages, completionCallback) {
     var arrayOfPages = _.range(1, pages + 1);
     async.map(arrayOfPages, getPageOfProducts, completionCallback);
   }
 
-  function getPageOfProducts(page, completionCallback) {
+function getPageOfProducts(page, completionCallback) {
     client.itemSearch({
       keywords: categoryToAdd,
       responseGroup: 'ItemAttributes, OfferSummary, Images',
@@ -133,13 +132,13 @@
     });
   }
 
-  function parseItems(items, completionCallback) {
+function parseItems(items, completionCallback) {
     async.map(items, parseItem, completionCallback);
   }
 
-  // throw in a massive try catch and skip on errors/no data present
-  // also could use better error checking
-  function parseItem(item, completionCallback) {
+// throw in a massive try catch and skip on errors/no data present
+// also could use better error checking
+function parseItem(item, completionCallback) {
     try {
       var itemObj = {
         info: {
@@ -179,8 +178,8 @@
     };
   }
 
-  //eventually needs callback and error checking
-  function getReviewsByASIN(asinNum, completionCallback) {
+//eventually needs callback and error checking
+function getReviewsByASIN(asinNum, completionCallback) {
     // intial values
     var nextPage = true;
     var pageCount = 1;
@@ -231,18 +230,16 @@
     }
   };
 
-  // GET /api/reviews/product/<by id>
-  router.get('/product/:id', (req, res, next) => {
-    Product.findById(req.params.id, function (err, productFound) {
+// GET /api/reviews/product/<by id>
+router.get('/product/:id', (req, res, next) => {
+  Product.findById(req.params.id, function (err, productFound) {
       res.status(err ? 400 : 200).send(err || productFound);
     });
-  });
+});
 
-  // GET /api/reviews/products/<by category name>
-  router.get('/products/:categoryName', (req, res, next) => {
-    Product.getProductsByCategory(req.params.categoryName, null,function (err, productsByCategory) {
+// GET /api/reviews/products/<by category name>
+router.get('/products/:categoryName', (req, res, next) => {
+  Product.getProductsByCategory(req.params.categoryName, null, function (err, productsByCategory) {
       res.status(err ? 400 : 200).send(err || productsByCategory);
     });
-  });
-
-*/
+});

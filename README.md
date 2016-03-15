@@ -38,6 +38,7 @@
   - Include keywords that come up from reviews frequently
   * IBM Watson for text analysis/ Other reputable natural language processing
 - General:
+  - Code with best practices
   - Apply for Amazon Affiliate Program
   - Create Demo video to show product in use
   * Mobile version for in store use, to compare products off the shelf, NAME?: 'Off the shelf'
