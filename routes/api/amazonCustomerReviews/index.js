@@ -80,16 +80,40 @@ router.get('/top100ByDepartment/:browseNodeId', (req, res, next) => {
     browseNodeId: req.params.browseNodeId,
     responseGroup: 'TopSellers',
   }).then(function (top10) {
-    var bestProductUrl = top10[0].TopItemSet[0].TopItem[0].DetailPageURL;
-
-    res.status(200).send(bestProductUrl);
+    addTop100Products(top10, function (err, productsAdded) {
+      res.status(200).send(productsAdded);
+    });
   }).catch(function (err) {
     res.status(400).send(err);
   });
 });
 
-function findTop100ASINS(bestProductUrl) {
+function addTop100Products(top10, completionCallback) {
+  var bestProductUrl = top10[0].TopItemSet[0].TopItem[0].DetailPageURL[0];
+  findTop100ASINS(bestProductUrl, function (err, top100ASINs) {
+    if (err) {
+      return completionCallback(err, null);
+    } else {
+      return completionCallback(null, top100ASINs);
+    }
+  });
+}
 
+function findTop100ASINS(bestProductUrl, completionCallback) {
+  console.log('bestProductUrl: ', bestProductUrl);
+  request(bestProductUrl, (err, resp, body) => {
+    if (err) completionCallback('Request Fail', null);
+
+    if (resp.statusCode === 200) {
+      var $ = cheerio.load(body);
+      var top100Href = $('.badge-link').attr('href');
+      var top100Url = `http://www.amazon.com/${top100Href}`;
+
+      completionCallback(null, top100Url);
+    } else {
+      completionCallback('Response Error', null);
+    }
+  });
 }
 
 // POST /api/reviews
