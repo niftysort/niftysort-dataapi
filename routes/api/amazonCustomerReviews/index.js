@@ -36,12 +36,6 @@ router.post('/getProductsTop100FromUrl/', (req, res, next) => {
     if (err) return res.status(400).send(err);
     res.status(200).send(newCategory);
   });
-
-  //
-  // get20ProductsSinglePage(req.body.url, function (err, data) {
-  //   if (err) return res.status(400).send(err);
-  //   res.status(200).send(data);
-  // });
 });
 
 function makeProductsFromTop100HeadUrl(url, categoryName, completionCallback) {
