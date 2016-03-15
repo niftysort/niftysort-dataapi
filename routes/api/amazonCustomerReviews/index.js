@@ -31,6 +31,61 @@ var client = amazon.createClient({
 var categoryToAdd;
 var itemsAddedCount = 0;
 
+// GET /api/reviews/department/:departmentName
+router.get('/findDepartment/:departmentName', (req, res, next) => {
+  client.itemSearch({
+    keywords: req.params.departmentName,
+    responseGroup: 'BrowseNodes',
+  }).then(function (products) {
+    var departmentsDictionary = {};
+
+    var test = products.forEach(function (val) {
+      var browseNodeHead = val.BrowseNodes[0].BrowseNode[0];
+      recursiveParseDepartmentsNodelist(browseNodeHead, departmentsDictionary);
+    });
+
+    res.status(200).send(departmentsDictionary);
+  }).catch(function (err) {
+    res.send(err);
+  });
+});
+
+// Possible refactoring to avoid double if statements
+function recursiveParseDepartmentsNodelist(browseNodeObj, departmentsDictionary) {
+  var browseNodeId = browseNodeObj.BrowseNodeId;
+  var browseNodeName = browseNodeObj.Name;
+  if (departmentsDictionary[browseNodeName]) {
+    departmentsDictionary[browseNodeName].count++;
+  } else {
+    departmentsDictionary[browseNodeName] = {
+      id: browseNodeId,
+      count: 1,
+    };
+  }
+
+  if (browseNodeObj.Ancestors) {
+    var browseNodeHead = browseNodeObj.Ancestors[0].BrowseNode[0];
+    recursiveParseDepartmentsNodelist(browseNodeHead, departmentsDictionary);
+  }
+
+  if (browseNodeObj.Children) {
+    var browseNodeHead = browseNodeObj.Children[0].BrowseNode[0];
+    recursiveParseDepartmentsNodelist(browseNodeHead, departmentsDictionary);
+  }
+}
+
+// GET /api/reviews/top100ByDepartment/:browseNodeId
+router.get('/top100ByDepartment/:browseNodeId', (req, res, next) => {
+  client.browseNodeLookup({
+    browseNodeId: req.params.browseNodeId,
+    responseGroup: 'TopSellers',
+  }).then(function (topSellers) {
+    res.status(200).send(topSellers);
+  }).catch(function (err) {
+    res.send(err);
+  });
+});
+
 // POST /api/reviews
 // any failure in subfunctions will result in skipping that review/comment/item
 router.post('/', (req, res, next) => {
