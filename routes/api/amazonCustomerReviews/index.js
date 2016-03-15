@@ -32,17 +32,18 @@ var categoryToAdd;
 var itemsAddedCount = 0;
 
 router.post('/getProductsTop100FromUrl/', (req, res, next) => {
-  // findProductsFromTop100HeadUrl(req.body.url, function (err, productIds) {
+  // makeProductsFromTop100HeadUrl(req.body.url, function (err, productIds) {
   //   if (err) return res.status(400).send(err);
   //   res.status(200).send(productIds);
   // });
 
   get20ProductsSinglePage(req.body.url, function (err, data) {
-
+    if (err) return res.status(400).send(err);
+    res.status(200).send(data);
   });
 });
 
-function findProductsFromTop100HeadUrl(url, completionCallback) {
+function makeProductsFromTop100HeadUrl(url, completionCallback) {
   findChildUrlsFromHeadUrl(url, function (err, childUrlLinks) {
     if (err) return completionCallback(err, null);
 
@@ -83,37 +84,51 @@ function get20ProductsSinglePage(url, completionCallback) {
 
     if (resp.statusCode === 200) {
       var $ = cheerio.load(body);
-      var productCardsData = parseProductsFromDom($);
+      var productCardsData = parseProductsFromDom($, function (err, productsDataArr) {
+        if (err) return completionCallback(err, null);
+        console.log('product creation step');
 
-      // async.map($productCards, parseProduct, (err, arrOf20Products) => {
-      //   // var top100ProductsCards = _.flatten(arrOf20Products);
-      // });
-      completionCallback(null, 'top100ProductsCards');
+        // Future error checking: check if it has price, feature etc. ie. final check
+        // Before product creation in mongoose
+        async.map(productsDataArr, productCreation, (err, productIds) => {
+          if (err) return completionCallback(err, null);
+          completionCallback(null, productIds);
+        });
+      });
     } else {
       completionCallback('Response Error', null);
     }
   });
 }
 
-function parseProductsFromDom($) {
+function productCreation(product, completionCallback) {
+  Product.create(product, function (err, newProduct) {
+    if (err) return completionCallback(err, null);
+    completionCallback(null, newProduct._id);
+  });
+}
+
+function parseProductsFromDom($, completionCallback) {
   const ASINRegex = RegExp(/\/(\w{10})\//);
   const smallImgRegex = RegExp(/._.*_./);
 
   var $productCards = $('.zg_itemWrapper');
-  $productCards.each((index, element) => {
+  var productsDataArr = $productCards.map((index, element) => {
     var $element = $(element);
+    var amazonDetailsLink =  $element.find('.zg_title a').attr('href').trim();
+    var ASIN = amazonDetailsLink.match(ASINRegex)[1];
+
     var priceString = $element.find('.zg_price .price').text();
 
     if (!priceString && $element.find('.zg_price .listprice').text()) {
       priceString = $element.find('.zg_price .listprice').text();
+    } else if (!priceString && $element.find('.price').text()) {
+      priceString = $element.find('.price').text();
     } else if (!priceString) {
-      return 'Price Error';
+      return `Price Error ${ASIN}`;
     }
 
     var price = Number(priceString.replace(/[^0-9\.]+/g, ''));
-
-    var amazonDetailsLink =  $element.find('.zg_title a').attr('href').trim();
-    var ASIN = amazonDetailsLink.match(ASINRegex)[1];
 
     var abbreviatedTitle = $element.find('.zg_title a').text();
 
@@ -128,31 +143,48 @@ function parseProductsFromDom($) {
     var reviewCountStr = $reviews.text();
     var reviewCount = Number(reviewCountStr.replace(/[^0-9]+/g, ''));
 
-    console.log(ASIN, price, starRatingNum, reviewCount, imageLink);
-  });
+    return {
+      info: {
+        amazonDetailsLink: amazonDetailsLink,
+        ASIN: ASIN,
+        priceString: priceString,
+        price: price,
+        abbreviatedTitle: abbreviatedTitle,
+        imageLink: imageLink,
+        starRatingStr: starRatingStr,
+        starRatingNum: starRatingNum,
+        reviewsLink: reviewsLink,
+        reviewCount: reviewCount,
+      },
+      reviews: [],
+    };
+  }).get();
 
-  // getFeaturesAndHighResImage(ASIN, (err, featuresImagesObj) => {
-  //   if (err) return 'Amazon Api Error';
-  //
-  // });
+  async.each(productsDataArr, addAmazonApiData, (err) => {
+    console.log('finished with amazon api');
+    if (err) return completionCallback(err, null);
+    completionCallback(null, productsDataArr);
+  });
 }
 
-function getFeaturesAndHighResImage(asinNum, completionCallback) {
+function addAmazonApiData(productData, completionCallback) {
   client.itemLookup({
     idType: 'ASIN',
-    itemId: asinNum,
+    itemId: productData.info.ASIN,
     responseGroup: 'ItemAttributes,Images',
   }).then(function (productArr) {
     var item = productArr[0];
-    var dataObj = {
-      features: item.ItemAttributes[0].Feature,
-      imgHighRes: item.ImageSets[0].ImageSet[0].HiResImage ?
-        item.ImageSets[0].ImageSet[0].HiResImage[0].URL : '',
-    };
-    completionCallback(null, dataObj);
+    productData.info.title = item.ItemAttributes[0].Title[0];
+    productData.info.features = item.ItemAttributes[0].Feature;
+    productData.info.imgHighRes = item.ImageSets[0].ImageSet[0].HiResImage ?
+      item.ImageSets[0].ImageSet[0].HiResImage[0].URL[0] : '';
+    completionCallback(null);
   }).catch(function (err) {
-    completionCallback(err);
-  });;
+    completionCallback(null);
+
+    // Amazon API throws way to many errors, future scape the whole thing
+    // completionCallback(`Amazon API Error: ${err} ${productData.info.ASIN}`);
+  });
 }
 
 /*  Old Way of doing it
