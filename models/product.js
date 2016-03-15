@@ -17,7 +17,6 @@ var Product;
   ]
 */
 var productSchema = mongoose.Schema({
-  categoryName: String,
   info: {},
   reviews: [],
 });
