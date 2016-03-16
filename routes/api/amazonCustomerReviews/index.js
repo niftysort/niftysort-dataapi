@@ -30,7 +30,6 @@ var client = amazon.createClient({
 router.get('/test', (req, res, next) => {
   get20ProductsSinglePage('http://www.amazon.com/Best-Sellers-Appliances-Built-Wine-Cellars/zgbs/appliances/3741551/ref=zg_bs_nav_la_2_3741521', function (err, data) {
     if (err) return res.send(err);
-    console.log('Done');
     res.send(data);
   });
 });
@@ -100,7 +99,6 @@ function get20ProductsSinglePage(url, completionCallback) {
       var $ = cheerio.load(body);
       var productCardsData = parseProductsFromDom($, function (err, productsDataArr) {
         if (err) return completionCallback(err, null);
-        console.log('product creation step');
 
         // Future error checking: check if it has price, feature etc. ie. final check
         // Before product creation in mongoose
@@ -127,7 +125,7 @@ function parseProductsFromDom($, completionCallback) {
   const SMALLIMGREGEX = RegExp(/._.*_./);
 
   var $productCards = $('.zg_itemWrapper');
-  var productsDataArr = $productCards.map((index, element) => {
+  var productsDataArrUnFiltered = $productCards.map((index, element) => {
     var $element = $(element);
     var amazonDetailsLink =  $element.find('.zg_title a').attr('href').trim();
     var ASIN = amazonDetailsLink.match(ASINREGEX)[1];
@@ -139,7 +137,7 @@ function parseProductsFromDom($, completionCallback) {
     } else if (!priceString && $element.find('.price').text()) {
       priceString = $element.find('.price').text();
     } else if (!priceString) {
-      return `Price Error ${ASIN}`;
+      return null; // No Price Error
     }
 
     var price = Number(priceString.replace(/[^0-9\.]+/g, ''));
@@ -174,13 +172,15 @@ function parseProductsFromDom($, completionCallback) {
     };
   }).get();
 
+  var productsDataArr = productsDataArrUnFiltered.filter(function (val) {
+    return val;
+  });
+
   async.each(productsDataArr, addAmazonApiData, (err) => {
     if (err) return completionCallback(err, null);
-    console.log('finished with amazon api');
 
     async.each(productsDataArr, addReviewsData, (err) => {
       if (err) return completionCallback(err, null);
-      console.log('finished with adding reviews');
 
       completionCallback(null, productsDataArr);
     });
@@ -188,25 +188,30 @@ function parseProductsFromDom($, completionCallback) {
 }
 
 function addAmazonApiData(productData, completionCallback) {
-  client.itemLookup({
-    idType: 'ASIN',
-    itemId: productData.info.ASIN,
-    responseGroup: 'ItemAttributes,Images',
-  }).then(function (productArr) {
-    var item = productArr[0];
-    productData.info.title = item.ItemAttributes[0].Title[0];
-    productData.info.features = item.ItemAttributes[0].Feature;
-    productData.info.imgHighRes = item.ImageSets[0].ImageSet[0].HiResImage ?
-      item.ImageSets[0].ImageSet[0].HiResImage[0].URL[0] : '';
+  try {
+    client.itemLookup({
+      idType: 'ASIN',
+      itemId: productData.info.ASIN,
+      responseGroup: 'ItemAttributes,Images',
+    }).then(function (productArr) {
+      var item = productArr[0];
+      productData.info.title = item.ItemAttributes[0].Title[0];
+      productData.info.features = item.ItemAttributes[0].Feature;
+      productData.info.imgHighRes = item.ImageSets[0].ImageSet[0].HiResImage ?
+        item.ImageSets[0].ImageSet[0].HiResImage[0].URL[0] : '';
+      completionCallback(null);
+    }).catch(function (err) {
+      completionCallback(null); // Amazon API throws way to many errors, future scape all the data
+    });
+  } catch (err) {
+    console.log(err);
     completionCallback(null);
-  }).catch(function (err) {
-    completionCallback(null); // Amazon API throws way to many errors, future scape all the data
-  });
+  }
 }
 
 function addReviewsData(productData, completionCallback) {
   const REVIEWSPERPAGE = 10;
-  const ENOUGHREVIEWS = 1000;
+  const ENOUGHREVIEWS = 100;
 
   var baseUrl = productData.info.reviewsLink;
   var reviewsCount = productData.info.reviewsCount;
@@ -220,7 +225,7 @@ function addReviewsData(productData, completionCallback) {
   });
 
   // Choose Parallel or Series
-  async.parallel(scrapeFunctionsArrayForPages, function (err, reviewsByPage) {
+  async.series(scrapeFunctionsArrayForPages, function (err, reviewsByPage) {
     if (err) return completionCallback(err);
     var allReviewArray = _.flatten(reviewsByPage);
     productData.reviews = allReviewArray;
@@ -234,12 +239,7 @@ function makeScrapeDataFromUrlFunction(url) {
   };
 }
 
-var count = 1;
-
 function scrapeDataFromUrl(url, completionCallback) {
-  // Sanity Check to Ensure Scraping is still running
-  console.log('Url: ', url);
-
   request(url, (err, resp, body) => {
     if (err) completionCallback('Review Request Fail', null);
 
@@ -257,7 +257,6 @@ function scrapeDataFromUrl(url, completionCallback) {
           starRatingNum: Number(starRatingStr.slice(0, 3)),
         };
       }).get();
-      console.log(count++);
       completionCallback(null, reviewTextArray);
     } else {
       completionCallback('Response Error', null);
