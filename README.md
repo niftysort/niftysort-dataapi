@@ -30,12 +30,15 @@
   - User can watch data (products) come in (form of Materialize cards) which are populated with product info but will be missing reviews
   - UI/UX for products as they load should be fun tiles that animate as user moves around (transition all .5s!!!!)
   - User can click on card to see info coming in real time, as review come in they populate to the top!!!
+  - User can do custom queries to see the data they want to see, full control
+    - Should be able to see any review they want, query by amazon stars, keywords, helpfulness, verified purchases etc.
   * Extra Cool: Template card is brought into main view, and its filler text gets rewritten in realtime but with animations to prevent choppy feel
 - BackEnd:
   - Create API for everyone (JSON)
   - NPM Package? Contribute to D3 open source
   - Export to all charting libraries
   - Include keywords that come up from reviews frequently
+  - Deal with filler words and remove them from text, to speed up processing time
   * IBM Watson for text analysis/ Other reputable natural language processing
 - General:
   - Code with best practices
