@@ -211,7 +211,7 @@ function addAmazonApiData(productData, completionCallback) {
 
 function addReviewsData(productData, completionCallback) {
   const REVIEWSPERPAGE = 10;
-  const ENOUGHREVIEWS = 100;
+  const ENOUGHREVIEWS = 10;
 
   var baseUrl = productData.info.reviewsLink;
   var reviewsCount = productData.info.reviewsCount;
