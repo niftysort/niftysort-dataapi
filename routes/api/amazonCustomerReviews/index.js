@@ -28,7 +28,7 @@ var client = amazon.createClient({
 });
 
 router.get('/test', (req, res, next) => {
-  get20ProductsSinglePage('http://www.amazon.com/Best-Sellers-Appliances-Built-Wine-Cellars/zgbs/appliances/3741551/ref=zg_bs_nav_la_2_3741521', function (err, data) {
+  scrapeDataFromUrl('http://www.amazon.com/product-reviews/B00O2MB4AC/ref=acr_zeitgeist_text/182-9557613-0129404?ie=UTF8&showViewpoints=1&pageNumber=1', function (err, data) {
     if (err) return res.send(err);
     res.send(data);
   });
@@ -42,12 +42,28 @@ router.get('/product/:id', (req, res, next) => {
 });
 
 // POST /api/reviews/getProductsTop100FromUrl/
-router.post('/getProductsTop100FromUrl/', (req, res, next) => {
+router.post('/getProductsTop100FromUrl', (req, res, next) => {
   makeProductsFromTop100HeadUrl(req.body.url, req.body.categoryName, function (err, newCategory) {
     if (err) return res.status(400).send(err);
     res.status(200).send(newCategory);
   });
 });
+
+// POST /api/reviews/getReviews
+router.post('/getReviews', (req, res, next) => {
+  Category.findOne({name:req.body.categoryName}, function(err, categoryFound) {
+    var getReviewsFunctionsArrayForProducts = categoryFound.products.map(function (product) {
+      return makeAddReviewsDataFunction(product);
+    });
+
+    console.log('reviews length', getReviewsFunctionsArrayForProducts.length);
+
+    async.series(getReviewsFunctionsArrayForProducts, function (err, result) {
+      if (err) return res.status(400).send(err);
+      res.status(200).send('Done');
+    });
+  }).populate('products');
+})
 
 function makeProductsFromTop100HeadUrl(url, categoryName, completionCallback) {
   findChildUrlsFromHeadUrl(url, function (err, childUrlLinks) {
@@ -126,50 +142,58 @@ function parseProductsFromDom($, completionCallback) {
 
   var $productCards = $('.zg_itemWrapper');
   var productsDataArrUnFiltered = $productCards.map((index, element) => {
-    var $element = $(element);
-    var amazonDetailsLink =  $element.find('.zg_title a').attr('href').trim();
-    var ASIN = amazonDetailsLink.match(ASINREGEX)[1];
+    try {
+      var $element = $(element);
+      var amazonDetailsLink =  $element.find('.zg_title a').attr('href').trim();
+      var ASIN = amazonDetailsLink.match(ASINREGEX)[1];
 
-    var priceString = $element.find('.zg_price .price').text();
+      var priceString = $element.find('.zg_price .price').text();
 
-    if (!priceString && $element.find('.zg_price .listprice').text()) {
-      priceString = $element.find('.zg_price .listprice').text();
-    } else if (!priceString && $element.find('.price').text()) {
-      priceString = $element.find('.price').text();
-    } else if (!priceString) {
-      return null; // No Price Error
+      if (!priceString && $element.find('.zg_price .listprice').text()) {
+        priceString = $element.find('.zg_price .listprice').text();
+      } else if (!priceString && $element.find('.price').text()) {
+        priceString = $element.find('.price').text();
+      } else if (!priceString) {
+        return null; // Error: No Price
+      }
+
+      var price = Number(priceString.replace(/[^0-9\.]+/g, ''));
+
+      var abbreviatedTitle = $element.find('.zg_title a').text();
+
+      var smallImgLink = $element.find('.zg_itemImageImmersion a img').attr('src');
+      var imageLink = smallImgLink.replace(SMALLIMGREGEX, '._SL1500_.');
+
+      var starRatingStr = $element.find('.a-icon.a-icon-star .a-icon-alt').text();
+      var starRatingNum = Number(starRatingStr.slice(0, 3));
+
+      var $reviews = $element.find('.zg_reviews').find('.a-size-small .a-link-normal');
+      var reviewsLink = $reviews.attr('href');
+      var reviewCountStr = $reviews.text();
+      if (!reviewsLink || !reviewCountStr) {
+        return null;
+      }
+      var reviewCount = Number(reviewCountStr.replace(/[^0-9]+/g, ''));
+
+      return {
+        info: {
+          amazonDetailsLink: amazonDetailsLink,
+          ASIN: ASIN,
+          priceString: priceString,
+          price: price,
+          abbreviatedTitle: abbreviatedTitle,
+          imageLink: imageLink,
+          starRatingStr: starRatingStr,
+          starRatingNum: starRatingNum,
+          reviewsLink: reviewsLink,
+          reviewsCount: reviewCount,
+        },
+        reviews: [],
+      };
+    } catch (err) {
+      console.log(err);
+      return null; //ErrorL Parse Error skip product
     }
-
-    var price = Number(priceString.replace(/[^0-9\.]+/g, ''));
-
-    var abbreviatedTitle = $element.find('.zg_title a').text();
-
-    var smallImgLink = $element.find('.zg_itemImageImmersion a img').attr('src');
-    var imageLink = smallImgLink.replace(SMALLIMGREGEX, '._SL1500_.');
-
-    var starRatingStr = $element.find('.a-icon.a-icon-star .a-icon-alt').text();
-    var starRatingNum = Number(starRatingStr.slice(0, 3));
-
-    var $reviews = $element.find('.zg_reviews').find('.a-size-small .a-link-normal');
-    var reviewsLink = $reviews.attr('href');
-    var reviewCountStr = $reviews.text();
-    var reviewCount = Number(reviewCountStr.replace(/[^0-9]+/g, ''));
-
-    return {
-      info: {
-        amazonDetailsLink: amazonDetailsLink,
-        ASIN: ASIN,
-        priceString: priceString,
-        price: price,
-        abbreviatedTitle: abbreviatedTitle,
-        imageLink: imageLink,
-        starRatingStr: starRatingStr,
-        starRatingNum: starRatingNum,
-        reviewsLink: reviewsLink,
-        reviewsCount: reviewCount,
-      },
-      reviews: [],
-    };
   }).get();
 
   var productsDataArr = productsDataArrUnFiltered.filter(function (val) {
@@ -179,11 +203,12 @@ function parseProductsFromDom($, completionCallback) {
   async.each(productsDataArr, addAmazonApiData, (err) => {
     if (err) return completionCallback(err, null);
 
-    async.each(productsDataArr, addReviewsData, (err) => {
-      if (err) return completionCallback(err, null);
+    // async.each(productsDataArr, addReviewsData, (err) => {
+    //   if (err) return completionCallback(err, null);
 
-      completionCallback(null, productsDataArr);
-    });
+    completionCallback(null, productsDataArr);
+
+    // });
   });
 }
 
@@ -209,12 +234,21 @@ function addAmazonApiData(productData, completionCallback) {
   }
 }
 
-function addReviewsData(productData, completionCallback) {
-  const REVIEWSPERPAGE = 10;
-  const ENOUGHREVIEWS = 10;
+function makeAddReviewsDataFunction(productData) {
+  return function (callback) {
+    addReviewsData(productData, callback);
+  };
+}
 
-  var baseUrl = productData.info.reviewsLink;
-  var reviewsCount = productData.info.reviewsCount;
+var count = 0;
+
+function addReviewsData(product, completionCallback) {
+  console.log(product.info.abbreviatedTitle, product._id, ++count);
+  const REVIEWSPERPAGE = 10;
+  const ENOUGHREVIEWS = 100;
+
+  var baseUrl = product.info.reviewsLink;
+  var reviewsCount = product.info.reviewsCount;
   var adjustedCount = reviewsCount > ENOUGHREVIEWS ? ENOUGHREVIEWS : reviewsCount;
   var totalPages = Math.ceil(adjustedCount / REVIEWSPERPAGE);
   var pagesArray = _.range(1, totalPages + 1);
@@ -228,8 +262,10 @@ function addReviewsData(productData, completionCallback) {
   async.series(scrapeFunctionsArrayForPages, function (err, reviewsByPage) {
     if (err) return completionCallback(err);
     var allReviewArray = _.flatten(reviewsByPage);
-    productData.reviews = allReviewArray;
-    completionCallback(null);
+    product.reviews = allReviewArray;
+    product.save(function(err) {
+      completionCallback(err || null);
+    })
   });
 }
 
@@ -240,6 +276,7 @@ function makeScrapeDataFromUrlFunction(url) {
 }
 
 function scrapeDataFromUrl(url, completionCallback) {
+  console.log(url);
   request(url, (err, resp, body) => {
     if (err) completionCallback('Review Request Fail', null);
 

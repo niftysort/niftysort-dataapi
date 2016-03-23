@@ -37,12 +37,13 @@ categorySchema.statics.getD3DataByAttribute = function (categoryId, attribute, c
     var adjustedPerProductScore = aggregateScore / totalReviews;
 
     var d3Values = {
-      name: product.info.name,
+      name: product.info.abbreviatedTitle,
       x: -product.info.price, // reversed x and y and format price negative
       y: adjustedPerProductScore,
       xR: product.info.price,
       size: 1, // Changed size from 2 to 1
       shape: 'circle',
+      detailsLink: product.info.amazonDetailsLink
     };
     return d3Values;
   }
