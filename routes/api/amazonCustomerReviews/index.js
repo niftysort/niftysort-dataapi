@@ -49,8 +49,10 @@ router.post('/getProductsTop100FromUrl', (req, res, next) => {
   });
 });
 
+var ENOUGHREVIEWS = 10;
 // POST /api/reviews/getReviews
 router.post('/getReviews', (req, res, next) => {
+  ENOUGHREVIEWS = req.body.reviewsCount;
   Category.findOne({name:req.body.categoryName}, function(err, categoryFound) {
     var getReviewsFunctionsArrayForProducts = categoryFound.products.map(function (product) {
       return makeAddReviewsDataFunction(product);
@@ -200,15 +202,10 @@ function parseProductsFromDom($, completionCallback) {
     return val;
   });
 
-  async.each(productsDataArr, addAmazonApiData, (err) => {
+  async.map(productsDataArr, addAmazonApiData, (err, newProductsDataArr) => {
+    console.log(newProductsDataArr);
     if (err) return completionCallback(err, null);
-
-    // async.each(productsDataArr, addReviewsData, (err) => {
-    //   if (err) return completionCallback(err, null);
-
-    completionCallback(null, productsDataArr);
-
-    // });
+    completionCallback(null, newProductsDataArr);
   });
 }
 
@@ -224,9 +221,9 @@ function addAmazonApiData(productData, completionCallback) {
       productData.info.features = item.ItemAttributes[0].Feature;
       productData.info.imgHighRes = item.ImageSets[0].ImageSet[0].HiResImage ?
         item.ImageSets[0].ImageSet[0].HiResImage[0].URL[0] : '';
-      completionCallback(null);
+      completionCallback(null, productData);
     }).catch(function (err) {
-      completionCallback(null); // Amazon API throws way to many errors, future scape all the data
+      completionCallback(null, productData); // Amazon API throws way to many errors, future scape all the data
     });
   } catch (err) {
     console.log(err);
@@ -243,9 +240,9 @@ function makeAddReviewsDataFunction(productData) {
 var count = 0;
 
 function addReviewsData(product, completionCallback) {
-  console.log(product.info.abbreviatedTitle, product._id, ++count);
+  console.log(product.info.ASIN, product._id, ++count);
   const REVIEWSPERPAGE = 10;
-  const ENOUGHREVIEWS = 100;
+
 
   var baseUrl = product.info.reviewsLink;
   var reviewsCount = product.info.reviewsCount;
